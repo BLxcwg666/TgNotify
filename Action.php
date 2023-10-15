@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/Bootstrap.php';
 
-class Comment2Telegram_Action extends Typecho_Widget implements Widget_Interface_Do {
+class TgNotify_Action extends Typecho_Widget implements Widget_Interface_Do {
     public function action() {
         $this->init();
         $this->on($this->request->is('do=setWebhook'))->setWebhook ();
@@ -27,7 +27,7 @@ class Comment2Telegram_Action extends Typecho_Widget implements Widget_Interface
     public function init()
     {
         $this->_db = Typecho_Db::get();
-        $this->_cfg = $GLOBALS['options']->plugin('Comment2Telegram');
+        $this->_cfg = $GLOBALS['options']->plugin('TgNotify');
     }
     
     public function RouteBan () {
@@ -93,21 +93,25 @@ EOF;
         }
         
         $reply_to_message = $data['message']['reply_to_message']['text'];
-        if (isset($reply_to_message) && strpos($reply_to_message, "中说到: ") !== false) {
-            preg_match('/(.+?) 在 "(.+?)"\(\#(\d+)\) 中说到: \n> ([\s\S]+?) \(\#(\d+)\)/', $reply_to_message, $match);
-            $CommentData = [
-                'cid' => $match[3],
-                'author' => $data['message']['chat']['username'],
-                'text' => $data['message']['text'],
-                'parent' => $match[5]
-            ];
-            $ret = $this->CommentAdd($CommentData);
-            if ($ret['code'] == 0) {
-                $GLOBALS['telegramModel']->sendMessage ($data['message']['chat']['id'], '回复成功');
-            } else {
-                $GLOBALS['telegramModel']->sendMessage ($data['message']['chat']['id'], $ret['msg']);
+        if (isset($reply_to_message) && strpos($reply_to_message, "新评论") !== false) {
+            $pattern = '/\*收到评论！\*\n\*文章 >>\* (.+?)\n\n\*(.+?)\*：\n(.+?)\n\n\*IP >>\* (.+?)\n\*User-Agent >>\* (.+?)\n\nCid=(\d+), Coid=(\d+)/';
+            if (preg_match($pattern, $reply_to_message, $match)) {
+                $CommentData = [
+                    'cid' => $match[6],
+                    'author' => $data['message']['chat']['username'],
+                    'text' => $data['message']['text'],
+                    'parent' => $match[7]
+                ];
+                $ret = $this->CommentAdd($CommentData);
+                if ($ret['code'] == 0) {
+                    $GLOBALS['telegramModel']->sendMessage($data['message']['chat']['id'], '回复成功');
+                } else {
+                    $GLOBALS['telegramModel']->sendMessage($data['message']['chat']['id'], $ret['msg']);
+                }
             }
         }
+
+
         
         $callback_query = $data['callback_query'];
         if (isset ($callback_query) && isset($callback_query['data'])) {
@@ -239,7 +243,7 @@ EOF;
                     $text,
                     date('Y/m/d', $CommentInfo['created'])
                 );
-                $msgHtml = str_replace($search, $replace, file_get_contents(__COMMENT2TELEGRAM_PLUGIN_ROOT__ . '/template/guest.html'));
+                $msgHtml = str_replace($search, $replace, file_get_contents(__TgNotify_PLUGIN_ROOT__ . '/template/guest.html'));
                 Bootstrap::fetch(Plugin_Const::EMAIL_SENT_API, [
                     'email' => $CommentInfo['mail'],
                     'title' => '您在 ' . $ContentInfo['title'] . ' 的评论有了回复',

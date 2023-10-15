@@ -4,12 +4,12 @@ require_once __DIR__ . '/Bootstrap.php';
 /**
  * Telegram 推送评论通知
  * 
- * @package Comment2Telegram
- * @author Sora Jin
- * @version 1.3.2
- * @link https://jcl.moe
+ * @package TgNotify
+ * @author BLxcwg666, Sora Jin
+ * @version 1.3.3
+ * @link https://blog.xcnya.cn/archives/77.html
  */
-class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
+class TgNotify_Plugin implements Typecho_Plugin_Interface {
     /**
      * 激活插件方法,如果激活失败,直接抛出异常
      * 
@@ -22,18 +22,18 @@ class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
             throw new Typecho_Plugin_Exception(_t('对不起，插件目录不可写，无法正常使用此功能'));
         }
         
-        Typecho_Plugin::factory('Widget_Feedback')->finishComment = array('Comment2Telegram_Plugin', 'commentSend');
-        Typecho_Plugin::factory('Widget_Comments_Edit')->finishComment = array('Comment2Telegram_Plugin', 'commentSend');
-        Helper::addAction("CommentEdit", "Comment2Telegram_Action");
+        Typecho_Plugin::factory('Widget_Feedback')->finishComment = array('TgNotify_Plugin', 'commentSend');
+        Typecho_Plugin::factory('Widget_Comments_Edit')->finishComment = array('TgNotify_Plugin', 'commentSend');
+        Helper::addAction("CommentEdit", "TgNotify_Action");
         
         /*Bootstrap::fetch ("https://api.aim.moe/Counter/Plugin", [
             'siteName' => $GLOBALS['options']->title,
             'siteUrl' => $GLOBALS['options']->siteUrl,
-            'plugin' => 'Comment2Telegram',
+            'plugin' => 'TgNotify',
             'version' => Plugin_Const::VERSION
         ], 'POST');*/
         
-        return _t('请配置此插件的 Token 和 Telegram Master ID, 以使您的 Telegram 推送生效');
+        return _t('别忘了在插件配置填写相关信息喵~');
     }
     
     /**
@@ -47,7 +47,7 @@ class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
     public static function deactivate() {
         Helper::removeAction("CommentEdit");
 
-        /*$data = Bootstrap::fetch ("https://api.aim.moe/Counter/Plugin?siteName=" . $GLOBALS['options']->title . '&siteUrl=' . $GLOBALS['options']->siteUrl . '&plugin=Comment2Telegram');
+        /*$data = Bootstrap::fetch ("https://api.aim.moe/Counter/Plugin?siteName=" . $GLOBALS['options']->title . '&siteUrl=' . $GLOBALS['options']->siteUrl . '&plugin=TgNotify');
         $data = json_decode ($data, true);
         Bootstrap::fetch ("https://api.aim.moe/Counter/Plugin/" . $data[0]->pid, 'DELETE');*/
     }
@@ -59,6 +59,7 @@ class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
      * @param Typecho_Widget_Helper_Form $form 配置面板
      * @return void
      */
+     
     public static function config (Typecho_Widget_Helper_Form $form) {
 
         $lversion = json_decode(Bootstrap::fetch (Plugin_Const::GITHUB_REPO_API))->tag_name;
@@ -67,7 +68,7 @@ class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
     	} else {	
     		echo '<p style="font-size:18px;">你正在使用最新版的 Comment2Telegram！</p>';	
     	}
-        $Mode = new Typecho_Widget_Helper_Form_Element_Radio('mode', array ('0' => '由插件处理', '1' => '外部处理'), 0, '回复处理。。', '建议选择 "插件处理"。。如果 Bot 还要实现其他功能请选择 "外部处理"');
+        $Mode = new Typecho_Widget_Helper_Form_Element_Radio('mode', array ('0' => '由插件处理', '1' => '由外部处理'), 0, '评论回复处理', '建议选择 "插件处理"（好像被我改坏了），如果 Bot 还要实现其他功能请选择 "外部处理"');
         $form->addInput($Mode->addRule('enum', _t('必须选择一个模式'), array(0, 1)));
         $Token = new Typecho_Widget_Helper_Form_Element_Text('Token', NULL, NULL, _t('Token'), _t('需要输入指定Token'));
         $form->addInput($Token->addRule('required', _t('您必须填写一个正确的Token')));
@@ -75,6 +76,8 @@ class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
         $form->addInput($MasterID->addRule('required', _t('您必须填写一个正确的 Telegram ID')));
         echo '<style>.typecho-option-submit button[type="submit"]{display:none!important}</style><script>window.onload=function(){$(".typecho-option-submit li").append("<div class=\"description\"><button class=\"btn primary\" id=\"save\">保存设置</button></div>");$("input[name=mode]").change(function(){if($(this).val()==1){$(".description").append("<div class=\"outDeal\">保存后将会往你的 TG 中发送接口信息</div>")}else if($(this).val()==0){if($(".outDeal").length>0){$(".outDeal").remove()}}});$("button#save").click(function(){var b=$(this),a=$(b).text();$(b).attr("disabled","disabled");if($("input[name=Token]").val()==""){$(b).text("请填写Bot Token");setTimeout(function(){$(b).text(a);$(b).removeAttr("disabled")},2000);return}if($("input[name=MasterID]").val()==""){$(b).text("请填写Bot Token");setTimeout(function(){$(b).text(a);$(b).removeAttr("disabled")},2000);return}$.ajax({type:"POST",url:window.location.origin+"/action/CommentEdit?do=setWebhook",dataType:"json",data:{mode:$("input[name=mode]:checked").val(),token:$("input[name=Token]").val(),master:$("input[name=Master]").val()},success:function(d,e,c){if(d.code=="0"){$(b).text("已 Reset Webhook");setTimeout(function(){$(b).text("正在保存设置");$(".typecho-option-submit button[type=\"submit\"]").click()},2000)}else{$(b).text("失败："+d.msg)}}})})}</script>';
     }
+
+
     
     /**
      * 个人用户的配置面板
@@ -95,23 +98,28 @@ class Comment2Telegram_Plugin implements Typecho_Plugin_Interface {
      */
     public static function commentSend($comment, $post) {
         // 初始化变量
-        $_cfg = $GLOBALS['options']->plugin('Comment2Telegram');
+        $_cfg = $GLOBALS['options']->plugin('TgNotify');
 
-        $text = $comment->author . ' 在 "' . $comment->title . '"(#' . $comment->cid . ') 中说到: 
-> ' . $comment->text . ' (#' . $comment->coid . ')';
-        
-        $button = json_encode (array (
-            'inline_keyboard' => array (
-                array (array (
-                    'text' => '垃圾评论',
-                    'callback_data' => 'spam_' . $comment->coid
-                )),
-                array (array (
-                    'text' => '删除评论',
-                    'callback_data' => 'delete_' . $comment->coid
-                ))
-            )
-        ));
+        $text = "*收到评论！*\n" .
+                "*文章 >>* $comment->title \n\n" .
+                "*{$comment->author}*：\n" .
+                "{$comment->text}\n\n" .
+                "*IP >>* {$comment->ip}\n" .
+                "*User-Agent >>* {$comment->agent}\n\n" .
+                "Cid={$comment->cid}, Coid={$comment->coid}\n" .
+                "_Tips：回复这条消息来回复评论_";
+
+        $button = json_encode([
+            'inline_keyboard' => [
+                [
+                    ['text' => '垃圾评论', 'callback_data' => 'spam_' . $comment->coid],
+                    ['text' => '删除评论', 'callback_data' => 'delete_' . $comment->coid]
+                ],
+                [
+                    ['text' => '直达文章', 'url' => $comment->permalink]
+                ]
+            ]
+        ]);
                 
         $GLOBALS['telegramModel']->sendMessage($_cfg->MasterID, $text, NULL, $button);
     }
