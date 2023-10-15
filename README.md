@@ -1,5 +1,6 @@
-# Comment2Telegram
-将  `Typecho` 的评论推送至 `Telegram` 通知，支持回复评论、通过评论、垃圾评论和删除评论
+# TgNotify
+将  `Typecho` 的评论推送至 `Telegram` 通知，支持回复评论、通过评论、垃圾评论和删除评论  
+修改自 https://github.com/Adoream/typecho-plugin-comment2telegram
 
 ## 使用
 1. 下载后请将插件目录名请修改为 `Comment2Telegram`
@@ -10,7 +11,7 @@
 PS：如果不知道如何获取 `Telegram Bot Token` 的话那么。。。你不适合使用 `Comment2Telegram`
 
 ## 截图
-![截图](http://forum.typecho.org/download/file.php?id=1294)
+![image](https://github.com/BLxcwg666/TgNotify/assets/66854530/c017aeee-45be-4495-8544-a64091174b56)
 
 ## 注意
 1. 由于 Telegram 官方的限制，当使用 `插件处理` 时，请使用 HTTPS 模式
@@ -20,5 +21,3 @@ PS：如果不知道如何获取 `Telegram Bot Token` 的话那么。。。你�
 ## 关于 `回复处理`
 建议直接使用插件进行处理，如果Bot还需实现有其他功能的话。。就选择 `外部处理`
 
-## 感谢
-1. Tbo: https://github.com/U2FsdGVkX1/Tbo
